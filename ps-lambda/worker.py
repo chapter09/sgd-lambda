@@ -13,12 +13,14 @@ def grad():
     pass
 
 
-def push():
+def push(w, b):
     pass
 
 
 def pull():
-    pass
+    w = None
+    b = None
+    return w, b
 
 
 def update_w():
@@ -31,6 +33,9 @@ def load_data(batch_size):
 
 
 def train(batch_size, data_iter, lr, period):
+
+    weight, bias = pull()
+
     net = gluon.nn.Sequential()
     net.add(gluon.nn.Dense(1))
     square_loss = gluon.loss.L2Loss()
@@ -40,17 +45,19 @@ def train(batch_size, data_iter, lr, period):
                             {'learning_rate': lr})
     # total_loss = [np.mean(square_loss(net(X), y).asnumpy())]
 
-
     for batch_i, (data, label) in enumerate(data_iter):
         with autograd.record():
             output = net(data)
             loss = square_loss(output, label)
         loss.backward()
         trainer.step(batch_size)
-        if batch_i * batch_size % period == 0:
-            total_loss.append(np.mean(square_loss(net(X), y).asnumpy()))
 
+        # if batch_i * batch_size % period == 0:
+        #     total_loss.append(np.mean(square_loss(net(X), y).asnumpy()))
+    weight_update = np.reshape(net[0].weight.data().asnumpy(), (1, -1))
+    bias_update = net[0].bias.data().asnumpy()[0]
 
+    push(weight_update, bias_update)
 
 
 def lambda_handler(event, context):
