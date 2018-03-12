@@ -1,0 +1,3 @@
+[submodule "mxnet-lambda"]
+	path = mxnet-lambda
+	url = https://github.com/awslabs/mxnet-lambda.git
