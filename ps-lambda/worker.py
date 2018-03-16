@@ -1,5 +1,4 @@
 import mxnet as mx
-from mxnet import gluon
 from mxnet import autograd
 from mxnet import gluon
 from mxnet import ndarray as nd
@@ -7,86 +6,78 @@ import numpy as np
 import random
 import boto3
 import json
+from mxnet.gluon import ParameterDict, Parameter
+
+from .ps import *
 
 
-def grad():
-    pass
+def load_data(s3_url):
+    X, y = nd.load(s3_url)
+    return X, y
 
 
-def push(w, b):
-    pass
+def net(w, b):
+    def _net(X):
+        return mx.nd.dot(X, w) + b
+    return _net
 
 
-def pull():
-    w = None
-    b = None
-    return w, b
+def square_loss(yhat, y):
+    return nd.mean((yhat - y) ** 2)
 
 
-def update_w():
-    pass
+def SGD(params, lr):
+    for param in params:
+        param[:] = param - lr * param.grad
+    return params
 
 
-def load_data(batch_size):
-    dataset = None
-    data_iter = gluon.data.DataLoader(dataset, batch_size, shuffle=True)
-
-
-def train(batch_size, data_iter, lr, period):
-
-    weight, bias = pull()
-
-    net = gluon.nn.Sequential()
-    net.add(gluon.nn.Dense(1))
+def train(kv_url, s3_url, lr):
+    # load data
+    data, label = load_data(s3_url)
     square_loss = gluon.loss.L2Loss()
 
-    net.collect_params().initialize(mx.init.Normal(sigma=1), force_reinit=True)
-    trainer = gluon.Trainer(net.collect_params(), 'sgd',
-                            {'learning_rate': lr})
+    # initialize with parameters from KV
+    w, b = pull(kv_url)
+    net_update = net(w, b)
+
     # total_loss = [np.mean(square_loss(net(X), y).asnumpy())]
 
-    for batch_i, (data, label) in enumerate(data_iter):
-        with autograd.record():
-            output = net(data)
-            loss = square_loss(output, label)
-        loss.backward()
-        trainer.step(batch_size)
+    with autograd.record():
+        output = net_update(data)
+        loss = square_loss(output, label)
+    loss.backward()
+    SGD(params, learning_rate)
 
-        # if batch_i * batch_size % period == 0:
-        #     total_loss.append(np.mean(square_loss(net(X), y).asnumpy()))
-    weight_update = np.reshape(net[0].weight.data().asnumpy(), (1, -1))
-    bias_update = net[0].bias.data().asnumpy()[0]
+    w_update =
+    b_update =
 
-    push(weight_update, bias_update)
+    push(weight_update, bias_update, kv_url)
+
+    return loss
 
 
 def lambda_handler(event, context):
 
-    batch_size = int(event['batch-size'])
-
     try:
-        # API Gateway GET method
+        batch_size = int(event['batch-size'])
+        learnng_rate = int(event['learning-rate'])
+        kv_url = event['kv-url']
+        s3_url = event['s3-url']
+        rank = int(event['rank'])
 
-        if event['httpMethod'] == 'GET':
-            url = event['queryStringParameters']['url']
-        #API Gateway POST method
-        elif event['httpMethod'] == 'POST':
-            data = json.loads(event['body'])
-            if data.has_key('dataurl'):
-                data_url = data['dataurl']
-            else:
-                url = data['url']
+        ret = train(kv_url, s3_url, learnng_rate)
 
     except KeyError:
-        # direct invocation
-        url = event['url']
+        ret = ""
+        exit(1)
 
     out = {
             "headers": {
                 "content-type": "application/json",
                 "Access-Control-Allow-Origin": "*"
                 },
-            "body": '{"address": "%s", "latlng": "%s"}' % (),
+            "body": '{"ret": %s}' % ret,
             "statusCode": 200
           }
     return out
