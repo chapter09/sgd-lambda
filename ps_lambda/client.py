@@ -5,7 +5,7 @@ from mxnet import nd, gluon
 from threading import Thread
 import argparse
 
-from .ps import *
+from ps import push, pull
 
 # load data to S3
 
@@ -70,12 +70,9 @@ def train(batch_size, num_lambda, lr, epochs, s3_url, kv_url):
 def main():
 
     parser = argparse.ArgumentParser(description='Process some integers.')
-    parser.add_argument('--data', dest='is-data-ready', type=bool, default=True,
+    parser.add_argument('--data', dest='is_data_ready', default=True,
                         action='store_false', help='is data ready in S3')
-
     args = parser.parse_args()
-
-    print(args.accumulate(args.integers))
 
     epochs = 10
     learning_rate = .0001
