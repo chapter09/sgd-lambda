@@ -34,7 +34,7 @@ def lambda_call(client, payload):
 
 # upload data
 def upload_input_data(data, s3_url):
-    nd.save(s3_url, data)
+    push(data, s3_url)
     return s3_url
 
 
@@ -85,7 +85,7 @@ def main():
     num_examples = 10000
 
     kv_url = "s3://ps-lambda-mxnet/w-b-%d" % num_examples
-    s3_url = 's3://ps-lambda-mxnet/X-y-%d' % num_examples
+    s3_url = "s3://ps-lambda-mxnet/X-y-%d" % num_examples
 
     num_lambda = num_examples / batch_size
 
@@ -99,9 +99,9 @@ def main():
     b = nd.random_normal(shape=num_outputs)
 
     # push params to kvstore
-    push(w, b, kv_url)
+    push([w, b], kv_url)
 
-    #train(batch_size, num_lambda, learning_rate, epochs, s3_url, kv_url)
+    train(batch_size, num_lambda, learning_rate, epochs, s3_url, kv_url)
 
 
 if __name__ == '__main__':
