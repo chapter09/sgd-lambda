@@ -61,6 +61,8 @@ def train(batch_size, num_lambda, lr, epochs, s3_url, kv_url):
             })
 
             lambda_call(lambda_client, payload)
+            break
+        break
 
     # total_loss = [np.mean(square_loss(net(X), y).asnumpy())]
 
@@ -99,7 +101,7 @@ def main():
     # push params to kvstore
     push(w, b, kv_url)
 
-    # train(batch_size, num_lambda, learning_rate, epochs, s3_url, kv_url)
+    #train(batch_size, num_lambda, learning_rate, epochs, s3_url, kv_url)
 
 
 if __name__ == '__main__':

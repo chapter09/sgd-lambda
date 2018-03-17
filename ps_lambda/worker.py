@@ -2,7 +2,7 @@ import mxnet as mx
 from mxnet import autograd
 from mxnet import nd, gluon
 
-from .ps import push, pull
+from ps import push, pull
 
 
 def load_data(s3_url):

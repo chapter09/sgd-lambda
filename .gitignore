@@ -105,3 +105,6 @@ ENV/
 
 #configuration file
 conf/*.conf
+
+ps_lambda/w-b
+ps_lambda/w-b-10000
