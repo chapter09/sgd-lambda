@@ -108,3 +108,4 @@ conf/*.conf
 
 ps_lambda/w-b
 ps_lambda/w-b-10000
+mxnet-lambda
