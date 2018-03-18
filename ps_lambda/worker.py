@@ -58,32 +58,23 @@ def train(kv_url, s3_url, batch_size, rank, lr):
 
 def lambda_handler(event, context):
 
-    try:
-        batch_size = int(event['batch-size'])
-        learning_rate = float(event['learning-rate'])
-        kv_url = event['kv-url']
-        s3_url = event['s3-url']
-        rank = int(event['rank'])
+    batch_size = int(event['batch-size'])
+    learning_rate = float(event['learning-rate'])
+    kv_url = event['kv-url'].split('/')[-1]
+    s3_url = event['s3-url'].split('/')[-1]
+    rank = int(event['rank'])
 
-        ret = train(kv_url, s3_url, batch_size, rank, learning_rate)
-        return {
-            "headers": {
-                "content-type": "application/json",
-                "Access-Control-Allow-Origin": "*"
-            },
-            "body": '{"loss": %s}' % ret,
-            "statusCode": 200
-        }
+    ret = train(kv_url, s3_url, batch_size, rank, learning_rate)
+    return {
+        "headers": {
+            "content-type": "application/json",
+            "Access-Control-Allow-Origin": "*"
+        },
+        "body": '{"loss": %s}' % ret,
+        "statusCode": 200
+    }
 
-    except Exception as e:
-        return {
-            "headers": {
-                "content-type": "application/json",
-                "Access-Control-Allow-Origin": "*"
-            },
-            "body": '{"error": %s}' % e,
-            "statusCode": 500
-        }
+
 
 
 if __name__ == '__main__':

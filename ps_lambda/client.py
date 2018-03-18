@@ -5,6 +5,7 @@ from mxnet import nd, gluon
 from threading import Thread
 import argparse
 
+
 from ps import push, pull
 
 # load data to S3
@@ -26,7 +27,7 @@ def gen_data(num_examples, num_inputs):
 # lambda invoke
 def lambda_call(client, payload):
 
-    r = client.invoke(FunctionName='worker', Payload=payload)['Payload']
+    r = client.invoke(FunctionName='ps-lambda', Payload=payload)['Payload']
 
     result = json.loads(r.read())
     return result
@@ -34,24 +35,17 @@ def lambda_call(client, payload):
 
 # upload data
 def upload_input_data(data, s3_url):
-    push(data, s3_url)
+    push(data, s3_url, False)
     return s3_url
 
 
 # train
 def train(batch_size, num_lambda, lr, epochs, s3_url, kv_url):
 
-    net = gluon.nn.Sequential()
-    net.add(gluon.nn.Dense(1))
-    # square_loss = gluon.loss.L2Loss()
-
-    weight, bias = mx.init.Normal(sigma=1)
-    push(weight, bias)
-
     lambda_client = boto3.client('lambda')
 
     for epoch in range(1, epochs + 1):
-        for rank in range(0, num_lambda):
+        for rank in range(0, int(num_lambda)):
             payload = json.dumps({
                 "batch-size": batch_size,
                 "learning-rate": lr,
@@ -60,7 +54,7 @@ def train(batch_size, num_lambda, lr, epochs, s3_url, kv_url):
                 "rank": rank
             })
 
-            lambda_call(lambda_client, payload)
+            print(lambda_call(lambda_client, payload))
             break
         break
 
@@ -99,7 +93,7 @@ def main():
     b = nd.random_normal(shape=num_outputs)
 
     # push params to kvstore
-    push([w, b], kv_url)
+    push([w, b], kv_url, False)
 
     train(batch_size, num_lambda, learning_rate, epochs, s3_url, kv_url)
 
