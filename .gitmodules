@@ -1,6 +1,6 @@
 [submodule "mxnet-lambda"]
 	path = mxnet-lambda
-	url = https://github.com/awslabs/mxnet-lambda.git
+	url = https://github.com/chapter09/mxnet-lambda.git
 [submodule "ps_lambda/incubator-mxnet"]
 	path = incubator-mxnet
 	url = https://github.com/apache/incubator-mxnet
