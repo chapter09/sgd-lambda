@@ -2,15 +2,10 @@ import boto3
 import json
 import mxnet as mx
 from mxnet import nd, gluon
-from threading import Thread
+from multiprocessing import Pool
 import argparse
 
-
 from ps import push, pull
-
-# load data to S3
-
-client = boto3.client('lambda')
 
 
 def real_fn(X):
@@ -25,11 +20,14 @@ def gen_data(num_examples, num_inputs):
 
 
 # lambda invoke
-def lambda_call(client, payload):
-
-    r = client.invoke(FunctionName='ps-lambda', Payload=payload)['Payload']
+def lambda_call(payload):
+    client = boto3.client('lambda')
+    r = client.invoke(FunctionName='ps-lambda',
+                      InvocationType="RequestResponse",
+                      Payload=payload)['Payload']
 
     result = json.loads(r.read())
+    print("Lambda result: " + str(result))
     return result
 
 
@@ -42,25 +40,27 @@ def upload_input_data(data, s3_url):
 # train
 def train(batch_size, num_lambda, lr, epochs, s3_url, kv_url):
 
-    lambda_client = boto3.client('lambda')
+    pool = Pool(int(num_lambda)+1)
+    procs= []
 
-    for epoch in range(1, epochs + 1):
-        for rank in range(0, int(num_lambda)):
-            payload = json.dumps({
-                "batch-size": batch_size,
-                "learning-rate": lr,
-                "s3-url": s3_url,
-                "kv-url": kv_url,
-                "rank": rank
-            })
+    for rank in range(0, int(num_lambda)):
+        payload = json.dumps({
+            "batch-size": batch_size,
+            "learning-rate": lr,
+            "s3-url": s3_url,
+            "kv-url": kv_url,
+            "rank": rank,
+            "epochs": epochs
+        })
+        print("Launch AWS Lambda #%d" % rank)
+        procs.append(pool.apply_async(lambda_call, (payload, )))
 
-            print(lambda_call(lambda_client, payload))
-            break
-        break
+    res = [proc.get() for proc in procs]
+
+    pool.close()
+    pool.join()
 
     # total_loss = [np.mean(square_loss(net(X), y).asnumpy())]
-
-    pass
 
 
 def main():
@@ -71,7 +71,7 @@ def main():
     args = parser.parse_args()
 
     epochs = 10
-    learning_rate = .0001
+    learning_rate = .5
     batch_size = 100
 
     num_inputs = 2
@@ -95,7 +95,13 @@ def main():
     # push params to kvstore
     push([w, b], kv_url, False)
 
-    train(batch_size, num_lambda, learning_rate, epochs, s3_url, kv_url)
+    for i in range(0, 10):
+        train(batch_size, num_lambda, learning_rate, epochs, s3_url, kv_url)
+
+    # collect final results
+    w, b = pull(kv_url, False)
+    print("Weight: ", w)
+    print("Bias:", b)
 
 
 if __name__ == '__main__':

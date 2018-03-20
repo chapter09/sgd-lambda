@@ -24,7 +24,7 @@ def SGD(params, lr):
     return params
 
 
-def train(kv_url, s3_url, batch_size, rank, lr):
+def train(kv_url, s3_url, batch_size, epochs, rank, lr):
     data_ctx = mx.cpu()
     model_ctx = mx.cpu()
 
@@ -32,28 +32,31 @@ def train(kv_url, s3_url, batch_size, rank, lr):
     X, y = load_data(s3_url, batch_size, rank)
     # sq_loss = gluon.loss.L2Loss()
 
-    # initialize with parameters from KV
-    w, b = pull(kv_url)
+    cumulative_loss = 0
+    for epoch in range(1, epochs + 1):
 
-    params = [w, b]
-    for param in params:
-        param.attach_grad()
-    # total_loss = [np.mean(square_loss(net(X), y).asnumpy())]
+        # initialize with parameters from KV
+        w, b = pull(kv_url)
 
-    def net(X):
-        return mx.nd.dot(X, w) + b
+        params = [w, b]
+        for param in params:
+            param.attach_grad()
+        # total_loss = [np.mean(square_loss(net(X), y).asnumpy())]
 
-    with autograd.record():
-        output = net(X.as_in_context(model_ctx))
-        loss = square_loss(output, y.as_in_context(model_ctx))
-    loss.backward()
-    params = SGD(params, lr)
-    print(params)
-    print(loss.asscalar())
+        def net(X):
+            return mx.nd.dot(X, w) + b
 
-    push([params[0], params[1]], kv_url)
+        with autograd.record():
+            output = net(X.as_in_context(model_ctx))
+            loss = square_loss(output, y.as_in_context(model_ctx))
+        loss.backward()
+        params = SGD(params, lr)
+        # print(params)
+        # print(loss.asscalar())
+        cumulative_loss += loss.asscalar()
+        push([params[0], params[1]], kv_url)
 
-    return loss.asscalar()
+    return cumulative_loss / epochs
 
 
 def lambda_handler(event, context):
@@ -63,8 +66,9 @@ def lambda_handler(event, context):
     kv_url = event['kv-url'].split('/')[-1]
     s3_url = event['s3-url'].split('/')[-1]
     rank = int(event['rank'])
+    epochs = int(event['epochs'])
 
-    ret = train(kv_url, s3_url, batch_size, rank, learning_rate)
+    ret = train(kv_url, s3_url, batch_size, epochs, rank, learning_rate)
     return {
         "headers": {
             "content-type": "application/json",
@@ -75,10 +79,9 @@ def lambda_handler(event, context):
     }
 
 
-
-
 if __name__ == '__main__':
 
     train("s3://ps-lambda-mxnet/w-b-10000",
           "s3://ps-lambda-mxnet/X-y-10000",
           1000, 1, 0.0001)
+
