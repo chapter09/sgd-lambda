@@ -108,4 +108,4 @@ conf/*.conf
 
 ps_lambda/w-b*
 ps_lambda/X-y*
-mxnet-lambda
+incubator-mxnet
