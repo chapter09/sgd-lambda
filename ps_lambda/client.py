@@ -85,7 +85,7 @@ def main():
 
     epochs = 1
     learning_rate = .001
-    batch_size = 4
+    batch_size = 20
     lambda_size = 1000
 
     num_inputs = 2
