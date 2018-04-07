@@ -4,6 +4,7 @@ import mxnet as mx
 from mxnet import nd, gluon
 from multiprocessing import Pool
 import argparse
+import math
 
 from ps import push, pull
 
@@ -13,9 +14,8 @@ def real_fn(X):
 
 
 def gen_data(num_examples, num_inputs):
-    X = nd.random_normal(shape=(num_examples, num_inputs))
-    noise = .1 * nd.random_normal(shape=(num_examples,))
-    y = real_fn(X) + noise
+    X = mx.nd.random_normal(shape=(num_examples, 1, 32, 32))
+    y = mx.nd.arange(num_examples)
     return X, y
 
 
@@ -40,7 +40,7 @@ def upload_input_data(data, s3_url):
 # train
 def train(batch_size, num_lambda, lr, lambda_size, s3_url, kv_url):
 
-    pool = Pool(int(num_lambda)+1)
+    pool = Pool(math.ceil(lambda_size))
     procs= []
 
     for rank in range(0, int(num_lambda)):
@@ -84,13 +84,13 @@ def main():
     args = parser.parse_args()
 
     epochs = 1
-    learning_rate = .001
+    learning_rate = .01
     batch_size = 20
-    lambda_size = 1000
+    lambda_size = 10
 
     num_inputs = 2
     num_outputs = 1
-    num_examples = 10000
+    num_examples = 10
 
     num_lambda = int(num_examples / lambda_size)
 
@@ -102,7 +102,7 @@ def main():
     if not args.is_data_ready:
         upload_input_data([X, y], s3_url)
 
-        init_w_b(num_inputs, num_outputs, kv_url)
+    init_w_b(num_inputs, num_outputs, kv_url)
 
     for i in range(0, epochs):
         train(batch_size, num_lambda, learning_rate,

@@ -2,9 +2,10 @@ import mxnet as mx
 from mxnet import autograd
 from mxnet import nd, gluon
 import logging
-import numpy
+import numpy as np
 
 from ps import push, pull
+from lambda_model import Net
 
 
 def load_data(s3_url, batch_size, rank):
@@ -39,35 +40,39 @@ def train(kv_url, s3_url, batch_size, lambda_size, rank, lr):
     X, y = load_data(s3_url, lambda_size, rank)
     num_batches = y.shape[0] / batch_size
 
-    train_data = gluon.data.DataLoader(
-        gluon.data.ArrayDataset(X, y), batch_size=batch_size, shuffle=True)
-
     params = pull(kv_url)
     # initialize with parameters from KV
     cumulative_loss = 0
 
-    for param in params:
-        param.attach_grad()
-    # total_loss = [np.mean(square_loss(net(X), y).asnumpy())]
+    net = Net()
+    # Initialize on CPU. Replace with `mx.gpu(0)`, or `[mx.gpu(0), mx.gpu(1)]`,
+    # etc to use one or more GPUs.
 
-    def net(X):
-        return mx.nd.dot(X, params[0]) + params[1]
+    for i in range(0, 1):
 
-    for i, (data, label) in enumerate(train_data):
-        data = data.as_in_context(model_ctx)
-        label = label.as_in_context(model_ctx).reshape((-1, 1))
+        net.load_params('./params', ctx=mx.cpu())
+
         with autograd.record():
-            output = net(data)
-            loss = square_loss(output, label)
-        loss.backward()
-        params = SGD(params, lr, kv_url)
-        cumulative_loss += loss.asscalar()
+            output = net(X)
+            L = gluon.loss.SoftmaxCrossEntropyLoss()
+            loss = L(output, y)
+            loss.backward()
 
-    push([params[0], params[1]], kv_url)
+        print('loss:', loss)
+        for p in net.collect_params().values():
+            print(p.name, p.data())
+        # print('grad:', net.fc1.weight.grad())
+
+        for p in net.collect_params().values():
+            p.data()[:] -= lr / X.shape[0] * p.grad()
+
+        net.save_params("./params")
+
+    # push(params, kv_url)
     # print(cumulative_loss / num_batches)
 
-    result = (params[0], params[1], cumulative_loss / num_batches)
-    return result
+    # result = (params[0], params[1], cumulative_loss / num_batches)
+    return None
 
 
 def lambda_handler(event, context):
@@ -93,7 +98,7 @@ def lambda_handler(event, context):
 
 if __name__ == '__main__':
 
-    ret = train("s3://ps-lambda-mxnet/w-b-10000",
-                "s3://ps-lambda-mxnet/X-y-10000", 4, 1000, 0, 0.001)
+    ret = train("s3://ps-lambda-mxnet/w-b-10",
+                "s3://ps-lambda-mxnet/X-y-10", 4, 1000, 0, 0.01)
     print(ret)
 
