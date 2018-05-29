@@ -5,7 +5,7 @@ import logging
 import numpy as np
 
 from ps import push, pull
-from lambda_model import Net
+from net import general_net
 
 
 def load_data(s3_url, batch_size, rank):
@@ -44,7 +44,7 @@ def train(kv_url, s3_url, batch_size, lambda_size, rank, lr):
     # initialize with parameters from KV
     cumulative_loss = 0
 
-    net = Net()
+    net = general_net.Net()
     # Initialize on CPU. Replace with `mx.gpu(0)`, or `[mx.gpu(0), mx.gpu(1)]`,
     # etc to use one or more GPUs.
 
@@ -56,7 +56,7 @@ def train(kv_url, s3_url, batch_size, lambda_size, rank, lr):
             output = net(X)
             L = gluon.loss.SoftmaxCrossEntropyLoss()
             loss = L(output, y)
-            loss.backward()
+        loss.backward()
 
         print('loss:', loss)
         for p in net.collect_params().values():

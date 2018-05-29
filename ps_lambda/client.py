@@ -14,8 +14,9 @@ def real_fn(X):
 
 
 def gen_data(num_examples, num_inputs):
-    X = mx.nd.random_normal(shape=(num_examples, 1, 32, 32))
-    y = mx.nd.arange(num_examples)
+    mnist = mx.test_utils.get_mnist()
+    X = nd.array(mnist['train_data'])
+    y = nd.array(mnist['train_label'])
     return X, y
 
 
@@ -90,7 +91,7 @@ def main():
 
     num_inputs = 2
     num_outputs = 1
-    num_examples = 10
+    num_examples = 60000
 
     num_lambda = int(num_examples / lambda_size)
 
@@ -101,6 +102,7 @@ def main():
 
     if not args.is_data_ready:
         upload_input_data([X, y], s3_url)
+        exit(0)
 
     init_w_b(num_inputs, num_outputs, kv_url)
 
